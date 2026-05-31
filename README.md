@@ -7,12 +7,15 @@
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4-orange?logo=scikit-learn)
 ![Dataset](https://img.shields.io/badge/Dataset-LegitPhish%202025-green)
 ![Accuracy](https://img.shields.io/badge/Accuracy-96%25-brightgreen)
+![Deploy](https://img.shields.io/badge/Deploy-Railway-blueviolet?logo=railway)
 
 ---
 
 ## Overview
 
 PhishGuard is a machine learning web application that detects phishing URLs in real time. It combines a **Random Forest classifier** trained on the LegitPhish 2025 dataset with **VirusTotal** and **Google Safe Browsing** API integrations for layered threat detection.
+
+🔗 **Live demo:** https://web-production-7bd64.up.railway.app
 
 ---
 
@@ -38,17 +41,18 @@ PhishGuard is a machine learning web application that detects phishing URLs in r
 | ML | scikit-learn, XGBoost, pandas, numpy |
 | APIs | VirusTotal v3, Google Safe Browsing v4 |
 | Frontend | Vanilla JS, CSS variables, Google Fonts |
-| Deploy | Render.com, Gunicorn |
+| Deploy | Railway.app, Gunicorn |
+| Model storage | Google Drive (downloaded at startup) |
 | Dataset | LegitPhish 2025 (Mendeley Data) |
 
 ---
 
 ## Dataset
 
-**LegitPhish (2025)** — Potpelwar et al., Mendeley Data  
-- 101,219 manually verified URLs  
-- 63,678 phishing · 37,540 legitimate  
-- Sources: URLHaus, PhishTank, Wikipedia, Stack Overflow  
+**LegitPhish (2025)** — Potpelwar et al., Mendeley Data
+- 101,219 manually verified URLs
+- 63,678 phishing · 37,540 legitimate
+- Sources: URLHaus, PhishTank, Wikipedia, Stack Overflow
 - DOI: [10.17632/hx4m73v2sf.2](https://data.mendeley.com/datasets/hx4m73v2sf/2)
 
 ---
@@ -83,8 +87,11 @@ pip install -r requirements.txt
 #    Save as data/legitphish_raw.csv
 python src/train_model.py
 
-# 4. Configure API keys (optional)
-#    Edit config.py and add your keys
+# 4. Set API keys (PowerShell)
+$env:SAFE_BROWSING_API_KEY = "your_key"
+$env:VIRUSTOTAL_API_KEY    = "your_key"
+$env:GDRIVE_FILE_ID        = "your_drive_id"
+$env:WHOIS_ENABLED         = "false"
 
 # 5. Run
 python app.py
@@ -94,20 +101,22 @@ Open: http://127.0.0.1:5000
 
 ---
 
-## Cloud Deployment (Render.com)
+## Cloud Deployment (Railway.app)
 
 1. Fork this repo
-2. Upload `models/phishing_model.pkl` to Google Drive (share as public)
-3. Connect repo to [render.com](https://render.com) → New Web Service
-4. Set environment variables in Render dashboard:
+2. Upload `models/phishing_model.pkl` to Google Drive (share as "Anyone with the link")
+3. Connect repo to [railway.app](https://railway.app) → New Project → Deploy from GitHub
+4. Set environment variables in Railway dashboard → Variables tab:
 
 | Variable | Value |
 |---|---|
 | `GDRIVE_FILE_ID` | Your Google Drive file ID |
 | `VIRUSTOTAL_API_KEY` | From virustotal.com (free) |
 | `SAFE_BROWSING_API_KEY` | From Google Cloud Console (free) |
+| `WHOIS_ENABLED` | `false` |
+| `PHISHING_THRESHOLD` | `0.72` |
 
-Render auto-detects `render.yaml` and handles the rest.
+Railway auto-detects `railway.json` and handles the rest.
 
 ---
 
@@ -141,13 +150,14 @@ POST /predict/batch
 phishguard/
 ├── app.py                    # Flask server + API routes
 ├── startup.py                # Downloads model from Google Drive at boot
-├── config.py                 # API keys + thresholds
+├── config.py                 # Reads API keys from environment variables
 ├── requirements.txt
-├── render.yaml               # Render.com deploy config
+├── railway.json              # Railway.app deploy config
 ├── Procfile
+├── .env.example              # Environment variable reference (no real keys)
 ├── src/
-│   ├── predict_url.py        # Prediction logic + whitelist
-│   ├── extract_features.py   # URL feature extraction
+│   ├── predict_url.py        # Prediction logic + trusted domain whitelist
+│   ├── extract_features.py   # URL feature extraction (16 features)
 │   ├── train_model.py        # Model training script
 │   ├── virustotal.py         # VirusTotal API integration
 │   ├── safebrowsing.py       # Google Safe Browsing integration
@@ -163,7 +173,16 @@ phishguard/
 
 ---
 
+## Security
 
+All API keys are stored as environment variables — never in code or Git history.
+See `.env.example` for the list of required variables.
+
+---
+
+## Academic Context
+
+Developed as part of the **GLSI2 program** at the Faculté des Sciences de Bizerte, Université de Carthage.
 
 ---
 
