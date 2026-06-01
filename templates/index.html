@@ -124,7 +124,7 @@
       font-family:var(--mono); font-size:.62rem; letter-spacing:.5px; padding:3px 10px;
       border-radius:20px; border:1px solid; display:inline-flex; align-items:center; gap:5px;
     }
-    .badge-sb   { color:#a78bfa; border-color:rgba(167,139,250,.35); background:rgba(167,139,250,.08); }
+    .badge-sb        { color:#a78bfa; border-color:rgba(167,139,250,.35); background:rgba(167,139,250,.08); }
     .badge-whois-ok  { color:var(--safe); border-color:rgba(0,230,118,.3); background:rgba(0,230,118,.07); }
     .badge-whois-new { color:var(--warn); border-color:rgba(255,179,0,.3); background:rgba(255,179,0,.07); }
     .badge-whois-unk { color:var(--dim);  border-color:rgba(96,112,128,.3); background:rgba(96,112,128,.07); }
@@ -150,6 +150,15 @@
 
     /* History */
     .history-section { margin-top:8px; }
+    .export-btn {
+      display:inline-flex; align-items:center; gap:6px;
+      background:none; border:1px solid var(--border); color:var(--muted);
+      font-family:var(--mono); font-size:.65rem; letter-spacing:1px;
+      border-radius:8px; padding:7px 16px; cursor:pointer; margin:0 32px 20px;
+      transition:color .2s, border-color .2s;
+    }
+    .export-btn:hover { color:var(--accent); border-color:rgba(0,229,255,.4); }
+    .export-btn:disabled { opacity:.5; cursor:not-allowed; }
     .history-header { font-size:.62rem; font-family:var(--mono); color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
     .clear-btn { background:none; border:none; color:var(--muted); font-family:var(--mono); font-size:.62rem; letter-spacing:1px; cursor:pointer; transition:color .2s; }
     .clear-btn:hover { color:var(--danger); }
@@ -159,7 +168,7 @@
     .h-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
     .h-dot.phishing { background:var(--danger); }
     .h-dot.safe     { background:var(--safe); }
-    .h-url { font-family:var(--mono); font-size:.76rem; color:var(--text); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .h-url  { font-family:var(--mono); font-size:.76rem; color:var(--text); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .h-meta { font-family:var(--mono); font-size:.68rem; color:var(--muted); flex-shrink:0; }
     .history-empty { font-family:var(--mono); font-size:.75rem; color:var(--muted); text-align:center; padding:20px; }
 
@@ -177,7 +186,7 @@
 
     @media (max-width:540px) { .input-row { flex-direction:column; } .verdict-banner { flex-wrap:wrap; } .conf-pill { margin-left:0; } }
 
-    /* ── Batch scan ── */
+    /* Batch scan */
     .batch-toggle {
       font-family:var(--mono); font-size:.62rem; color:var(--muted); background:none;
       border:1px solid var(--border); border-radius:6px; padding:5px 12px;
@@ -208,7 +217,7 @@
     .b-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
     .b-dot.phishing { background:var(--danger); }
     .b-dot.safe     { background:var(--safe); }
-    .b-url { flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .b-url  { flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .b-conf { color:var(--muted); flex-shrink:0; }
     .batch-summary { font-family:var(--mono); font-size:.72rem; color:var(--muted); margin-top:6px; }
   </style>
@@ -225,6 +234,7 @@
         <p>URL Threat Detector</p>
       </div>
       <a class="charts-link" href="#" onclick="openCharts(); return false;">📊 Model Charts</a>
+      <div class="badge">LegitPhish 2025 · v4.0</div>
     </header>
 
     <div class="input-card">
@@ -266,6 +276,7 @@
           <div class="section-label">// feature breakdown</div>
           <div class="feature-grid" id="featureGrid"></div>
         </div>
+        <button class="export-btn" id="exportBtn" onclick="exportPDF()">⬇ Export PDF Report</button>
       </div>
     </div>
 
@@ -288,18 +299,18 @@
         <button class="close-btn" onclick="closeCharts()">✕</button>
       </div>
       <div class="charts-grid">
-        <img src="/charts/confusion_matrix.png"    alt="Confusion Matrix" />
-        <img src="/charts/feature_importance.png"  alt="Feature Importance" />
+        <img src="/charts/confusion_matrix.png"   alt="Confusion Matrix" />
+        <img src="/charts/feature_importance.png" alt="Feature Importance" />
       </div>
     </div>
   </div>
 
   <script>
-    // ── Constants ──────────────────────────────────────────────────────────────
+    // ── Constants ─────────────────────────────────────────────────────────────
     const LS_KEY      = 'phishguard_history';
     const MAX_HISTORY = 50;
 
-    // ── Load persisted history on startup ─────────────────────────────────────
+    // ── Load persisted history on startup ────────────────────────────────────
     let scans = [];
     try {
       const saved = localStorage.getItem(LS_KEY);
@@ -307,7 +318,7 @@
     } catch(e) { scans = []; }
     renderHistory();
 
-    // ── Persistence helpers ───────────────────────────────────────────────────
+    // ── Persistence helpers ──────────────────────────────────────────────────
     function saveHistory() {
       try { localStorage.setItem(LS_KEY, JSON.stringify(scans.slice(0, MAX_HISTORY))); }
       catch(e) {}
@@ -317,10 +328,9 @@
     async function scan() {
       const input = document.getElementById('urlInput');
       const btn   = document.getElementById('scanBtn');
-      const err   = document.getElementById('errorMsg');
       const url   = input.value.trim();
 
-      err.style.display = 'none';
+      hideError();
       if (!url) { showError('Please enter a URL.'); return; }
 
       btn.disabled = true;
@@ -345,7 +355,13 @@
     }
 
     // ── Render result card ────────────────────────────────────────────────────
+    // NOTE: single definition — merges PDF storage + error clearing + rendering.
     function renderResult(data) {
+      // Clear any visible error
+      hideError();
+      // Store for PDF export
+      window._lastScanResult = data;
+
       const p = data.is_phishing;
       document.getElementById('verdictBanner').className = 'verdict-banner ' + (p ? 'phishing' : 'safe');
       document.getElementById('verdictIcon').textContent  = p ? '⚠' : '✓';
@@ -439,7 +455,6 @@
 
     // ── History ───────────────────────────────────────────────────────────────
     function addHistory(data) {
-      // Remove duplicate if same URL already in history
       scans = scans.filter(s => s.url !== data.url);
       scans.unshift({ ...data, scanned_at: new Date().toISOString() });
       if (scans.length > MAX_HISTORY) scans = scans.slice(0, MAX_HISTORY);
@@ -483,6 +498,12 @@
       el.style.display = 'block';
     }
 
+    function hideError() {
+      const el = document.getElementById('errorMsg');
+      el.style.display = 'none';
+      el.textContent = '';
+    }
+
     function escHtml(s) {
       return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
@@ -491,24 +512,42 @@
     function closeCharts() { document.getElementById('chartsModal').classList.remove('open'); }
     function closeChartsOutside(e) { if (e.target === document.getElementById('chartsModal')) closeCharts(); }
 
+    // Clear error while typing
+    document.getElementById('urlInput').addEventListener('input', hideError);
+
+    // Scan on Enter key
     document.getElementById('urlInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') scan();
     });
-    // Clear error when user types
-    document.getElementById('urlInput').addEventListener('input', () => {
-      const el = document.getElementById('errorMsg');
-      el.style.display = 'none'; el.textContent = '';
-    });
 
-    // Clear error on successful result render
-    const _origRender = renderResult;
-    function renderResult(data) {
-      const el = document.getElementById('errorMsg');
-      el.style.display = 'none'; el.textContent = '';
-      _origRender(data);
+    // ── PDF export ────────────────────────────────────────────────────────────
+    async function exportPDF() {
+      const result = window._lastScanResult;
+      if (!result) { alert('Scan a URL first.'); return; }
+      const btn = document.getElementById('exportBtn');
+      btn.textContent = '⏳ Generating...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/export/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(result)
+        });
+        if (!res.ok) { const d = await res.json(); alert(d.error || 'PDF failed'); return; }
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = 'phishguard_report.pdf'; a.click();
+        URL.revokeObjectURL(url);
+      } catch(e) {
+        alert('PDF export failed.');
+      } finally {
+        btn.textContent = '⬇ Export PDF Report';
+        btn.disabled = false;
+      }
     }
 
-    // Batch scan
+    // ── Batch scan ────────────────────────────────────────────────────────────
     function toggleBatch() {
       document.getElementById('batchArea').classList.toggle('open');
     }
@@ -528,7 +567,10 @@
           body: JSON.stringify({ urls })
         });
         const data = await res.json();
-        if (data.error) { resDiv.innerHTML = `<div style="color:var(--danger);font-family:var(--mono);font-size:.75rem">${data.error}</div>`; return; }
+        if (data.error) {
+          resDiv.innerHTML = `<div style="color:var(--danger);font-family:var(--mono);font-size:.75rem">${data.error}</div>`;
+          return;
+        }
         resDiv.innerHTML = data.results.map(r =>
           `<div class="batch-item">
             <div class="b-dot ${r.is_phishing ? 'phishing' : 'safe'}"></div>
