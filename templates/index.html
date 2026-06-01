@@ -324,6 +324,16 @@
       catch(e) {}
     }
 
+    // ── URL validation regex ──────────────────────────────────────────────────
+    // Accepts http:// and https:// URLs with a valid domain (or IP) and optional path/query.
+    const URL_REGEX = /^https?:\/\/(([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}|((\d{1,3}\.){3}\d{1,3}))(:\d{1,5})?(\/[^\s]*)?$/;
+
+    function isValidUrl(url) {
+      if (!url) return false;
+      if (url.length > 2048) return false;
+      return URL_REGEX.test(url);
+    }
+
     // ── Scan ──────────────────────────────────────────────────────────────────
     async function scan() {
       const input = document.getElementById('urlInput');
@@ -332,6 +342,7 @@
 
       hideError();
       if (!url) { showError('Please enter a URL.'); return; }
+      if (!isValidUrl(url)) { showError('Please enter a valid URL starting with http:// or https://'); return; }
 
       btn.disabled = true;
       btn.classList.add('loading');
@@ -553,12 +564,20 @@
     }
 
     async function runBatch() {
-      const raw    = document.getElementById('batchInput').value;
-      const urls   = raw.split('\n').map(u => u.trim()).filter(Boolean).slice(0, 20);
-      const resDiv = document.getElementById('batchResults');
-      const sumDiv = document.getElementById('batchSummary');
-      if (!urls.length) return;
-      resDiv.innerHTML = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);padding:8px">Scanning...</div>';
+      const raw     = document.getElementById('batchInput').value;
+      const allUrls = raw.split('\n').map(u => u.trim()).filter(Boolean);
+      const invalid = allUrls.filter(u => !isValidUrl(u));
+      const urls    = allUrls.filter(u => isValidUrl(u)).slice(0, 20);
+      const resDiv  = document.getElementById('batchResults');
+      const sumDiv  = document.getElementById('batchSummary');
+      if (!allUrls.length) return;
+      if (invalid.length && !urls.length) {
+        resDiv.innerHTML = `<div style="color:var(--danger);font-family:var(--mono);font-size:.75rem">⚠ No valid URLs found. Each URL must start with http:// or https://</div>`;
+        sumDiv.textContent = '';
+        return;
+      }
+      resDiv.innerHTML = `${invalid.length ? `<div style="color:var(--warn);font-family:var(--mono);font-size:.72rem;margin-bottom:6px">⚠ ${invalid.length} invalid URL(s) skipped: ${invalid.map(u => escHtml(u)).join(', ')}</div>` : ''}
+        <div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);padding:4px 0">Scanning ${urls.length} URL(s)...</div>`;
       sumDiv.textContent = '';
       try {
         const res  = await fetch('/predict/batch', {
