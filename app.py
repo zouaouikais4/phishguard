@@ -2,7 +2,7 @@
 app.py — Flask web server for PhishGuard v5.
 """
 
-import os, sys, traceback, json
+import os, sys, re, traceback
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -20,7 +20,7 @@ from config import (
 
 app = Flask(__name__)
 
-# ── Rate limiter ──────────────────────────────────────────────────────────────
+# ── Rate limiter ───────────────────────────────────────────────────────────────
 limiter = Limiter(
     get_remote_address,
     app=app,
@@ -28,7 +28,7 @@ limiter = Limiter(
     storage_uri="memory://",
 )
 
-# ── Load model ────────────────────────────────────────────────────────────────
+# ── Load model ─────────────────────────────────────────────────────────────────
 MODEL_PATH = os.path.join(BASE_DIR, 'models', 'phishing_model.pkl')
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found: {MODEL_PATH}\nRun: python src/train_model.py")
@@ -36,7 +36,7 @@ if not os.path.exists(MODEL_PATH):
 _model = load_model(MODEL_PATH)
 print(f"✅  Model loaded from {MODEL_PATH}")
 
-# ── Cache startup ─────────────────────────────────────────────────────────────
+# ── Cache startup ──────────────────────────────────────────────────────────────
 try:
     from src.cache import purge_expired, stats as cache_stats
     import sqlite3 as _sqlite3
@@ -62,7 +62,31 @@ except Exception as e:
     print(f"Cache init warning: {e}")
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── URL validation ─────────────────────────────────────────────────────────────
+# Accepts http:// and https:// URLs with a valid domain or IP and optional path/query.
+_URL_RE = re.compile(
+    r'^https?://'                          # scheme
+    r'(([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}'  # domain
+    r'|((\d{1,3}\.){3}\d{1,3}))'          # or IPv4
+    r'(:\d{1,5})?'                         # optional port
+    r'([/?#][^\s]*)?$'                     # optional path/query/fragment
+)
+
+def _validate_url(url: str):
+    """Return (cleaned_url, error_message). error_message is None if valid."""
+    if not url:
+        return None, "No URL provided."
+    if len(url) > 2048:
+        return None, "URL too long (max 2048 chars)."
+    # Auto-prefix bare domains — e.g. "google.com" → "https://google.com"
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+    if not _URL_RE.match(url):
+        return None, "Invalid URL. Please enter a valid URL (e.g. https://example.com)."
+    return url, None
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
 def _run_predict(url):
     return predict_url(
         url,
@@ -74,11 +98,17 @@ def _run_predict(url):
     )
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+# ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/health')
+def health():
+    """Health check endpoint for Railway and uptime monitors."""
+    return jsonify({"status": "ok", "model": "loaded"}), 200
 
 
 @app.route('/charts/<path:filename>')
@@ -97,11 +127,9 @@ def predict():
     except Exception:
         return jsonify({"error": "Invalid JSON."}), 400
 
-    url = data.get('url', '').strip()
-    if not url:
-        return jsonify({"error": "No URL provided."}), 400
-    if len(url) > 2048:
-        return jsonify({"error": "URL too long (max 2048 chars)."}), 400
+    url, err = _validate_url(data.get('url', '').strip())
+    if err:
+        return jsonify({"error": err}), 400
 
     try:
         return jsonify(_run_predict(url))
@@ -119,16 +147,17 @@ def predict_batch():
     except Exception:
         return jsonify({"error": "Invalid JSON."}), 400
 
-    urls = data.get('urls', [])
-    if not isinstance(urls, list) or not urls:
-        return jsonify({"error": "Provide a non-empty \'urls\' list."}), 400
-    if len(urls) > 20:
+    raw_urls = data.get('urls', [])
+    if not isinstance(raw_urls, list) or not raw_urls:
+        return jsonify({"error": "Provide a non-empty 'urls' list."}), 400
+    if len(raw_urls) > 20:
         return jsonify({"error": "Max 20 URLs per batch request."}), 400
 
     results = []
-    for url in urls:
-        url = str(url).strip()
-        if not url:
+    for raw in raw_urls:
+        url, err = _validate_url(str(raw).strip())
+        if err:
+            results.append({"url": raw, "error": err})
             continue
         try:
             results.append(_run_predict(url))
@@ -169,7 +198,7 @@ def export_pdf():
         return jsonify({"error": f"PDF generation failed: {e}"}), 500
 
 
-# ── Error handlers ────────────────────────────────────────────────────────────
+# ── Error handlers ─────────────────────────────────────────────────────────────
 
 @app.errorhandler(404)
 def not_found(e):
@@ -185,18 +214,19 @@ def internal_error(e):
     return jsonify({"error": "Internal server error."}), 500
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# ── Entry point ────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     sep = '─' * 50
     print(f"\n{sep}")
     print(f"  PhishGuard v5.0")
     print(f"  Threshold    : {PHISHING_THRESHOLD}")
-    print(f"  WHOIS        : {'enabled' if WHOIS_ENABLED else 'disabled'}")
+    print(f"  WHOIS        : {'enabled' if WHOIS_ENABLED else 'disabled (fast mode)'}")
     print(f"  Safe Browsing: {'enabled' if SAFE_BROWSING_API_KEY else 'disabled'}")
     print(f"  VirusTotal   : {'enabled' if VIRUSTOTAL_API_KEY else 'disabled'}")
     print(f"  Batch API    : /predict/batch (max 20 URLs)")
     print(f"  PDF Export   : /export/pdf")
+    print(f"  Health check : /health")
     print(f"  URL          : http://127.0.0.1:5000")
     print(f"{sep}\n")
     app.run(debug=True, use_reloader=False)

@@ -4,6 +4,26 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PhishGuard — URL Threat Detector</title>
+
+  <!-- SEO & description -->
+  <meta name="description" content="PhishGuard — AI-powered phishing URL detector. Instantly scan any URL for phishing threats using machine learning, VirusTotal, and Google Safe Browsing." />
+  <meta name="author" content="PhishGuard" />
+
+  <!-- OpenGraph (LinkedIn, Facebook, WhatsApp previews) -->
+  <meta property="og:title"       content="PhishGuard — URL Threat Detector" />
+  <meta property="og:description" content="AI-powered phishing URL detector. Scan any URL instantly using ML + VirusTotal + Google Safe Browsing." />
+  <meta property="og:type"        content="website" />
+  <meta property="og:url"         content="https://phishguard.up.railway.app" />
+  <meta property="og:image"       content="https://phishguard.up.railway.app/static/og-preview.png" />
+
+  <!-- Twitter card -->
+  <meta name="twitter:card"        content="summary" />
+  <meta name="twitter:title"       content="PhishGuard — URL Threat Detector" />
+  <meta name="twitter:description" content="AI-powered phishing URL detector. Scan any URL instantly." />
+
+  <!-- Favicon (inline SVG → no 404, no extra file needed) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>" />
+
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -234,7 +254,7 @@
         <p>URL Threat Detector</p>
       </div>
       <a class="charts-link" href="#" onclick="openCharts(); return false;">📊 Model Charts</a>
-      <div class="badge">LegitPhish 2025 · v4.0</div>
+
     </header>
 
     <div class="input-card">
@@ -338,11 +358,16 @@
     async function scan() {
       const input = document.getElementById('urlInput');
       const btn   = document.getElementById('scanBtn');
-      const url   = input.value.trim();
+      let url     = input.value.trim();
 
       hideError();
       if (!url) { showError('Please enter a URL.'); return; }
-      if (!isValidUrl(url)) { showError('Please enter a valid URL starting with http:// or https://'); return; }
+      // Auto-prefix bare domains like "google.com" → "https://google.com"
+      if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+        input.value = url;
+      }
+      if (!isValidUrl(url)) { showError('Please enter a valid URL (e.g. https://example.com)'); return; }
 
       btn.disabled = true;
       btn.classList.add('loading');
