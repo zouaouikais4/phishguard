@@ -4,32 +4,32 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
 ![Flask](https://img.shields.io/badge/Flask-3.0-lightgrey?logo=flask)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4-orange?logo=scikit-learn)
+![XGBoost](https://img.shields.io/badge/XGBoost-2.0-orange?logo=xgboost)
 ![Dataset](https://img.shields.io/badge/Dataset-LegitPhish%202025-green)
-![Accuracy](https://img.shields.io/badge/Accuracy-96%25-brightgreen)
+![Accuracy](https://img.shields.io/badge/Accuracy-99.96%25-brightgreen)
 ![Deploy](https://img.shields.io/badge/Deploy-Railway-blueviolet?logo=railway)
 
 ---
 
 ## Overview
 
-PhishGuard is a machine learning web application that detects phishing URLs in real time. It combines a **Random Forest classifier** trained on the LegitPhish 2025 dataset with **VirusTotal** and **Google Safe Browsing** API integrations for layered threat detection.
+PhishGuard is a machine learning web application that detects phishing URLs in real time. It combines an **XGBoost classifier** with isotonic probability calibration, trained on the LegitPhish 2025 dataset, with **VirusTotal** and **Google Safe Browsing** API integrations for layered threat detection.
 
-🔗 **Live demo:** https://web-production-7bd64.up.railway.app
+🔗 **Live demo:** https://phishguard.up.railway.app
 
 ---
 
 ## Features
 
-- 🤖 **ML Model** — Random Forest, 300 trees, trained on 101,219 URLs
+- 🤖 **ML Model** — XGBoost with isotonic calibration, trained on 101,219 URLs
 - 🔍 **VirusTotal Integration** — checks against 90+ antivirus engines
 - 🛡 **Google Safe Browsing** — Google's live phishing/malware blacklist
 - 📦 **Batch Scan** — scan up to 20 URLs at once
 - 📄 **PDF Export** — download a styled scan report
-- 🌙 **Dark / Light mode** — toggle in the header
 - ⚡ **Rate limiting** — 30 requests/minute per IP
 - 💾 **Disk cache** — repeated scans return instantly
 - 📊 **Model charts** — feature importance + confusion matrix
+- ✅ **URL validation** — regex-based input validation on frontend and backend
 
 ---
 
@@ -38,7 +38,7 @@ PhishGuard is a machine learning web application that detects phishing URLs in r
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.11, Flask 3.0 |
-| ML | scikit-learn, XGBoost, pandas, numpy |
+| ML | XGBoost, scikit-learn, pandas, numpy |
 | APIs | VirusTotal v3, Google Safe Browsing v4 |
 | Frontend | Vanilla JS, CSS variables, Google Fonts |
 | Deploy | Railway.app, Gunicorn |
@@ -59,14 +59,25 @@ PhishGuard is a machine learning web application that detects phishing URLs in r
 
 ## Model Performance
 
-| Metric | Value |
+Evaluated on a held-out test set of **20,244 URLs** (20% stratified split):
+
+| Metric | Phishing | Legitimate |
+|---|---|---|
+| Precision | 1.00 | 1.00 |
+| Recall | 1.00 | 1.00 |
+| F1-score | 1.00 | 1.00 |
+| Support | 12,736 | 7,508 |
+
+| | Value |
 |---|---|
-| Accuracy | 96% |
-| Phishing detection | 96% (24/25) |
-| False positives | 4% (1/25) |
+| Overall accuracy | 99.96% @ threshold 0.72 |
+| Test set size | 20,244 URLs |
+| Train set size | 80,974 URLs |
 | Threshold | 0.72 |
 
-Features used (16 — pure URL analysis, no network calls):
+> **Note:** Near-perfect scores reflect the high separability of URL-based features in this dataset. The model relies purely on structural URL analysis — no DNS or network lookups during inference.
+
+Features used (14 — pure URL analysis, no network calls):
 
 `log_url_length` · `has_ip_address` · `dot_count` · `url_entropy` · `log_token_count` · `subdomain_count` · `query_param_count` · `tld_length` · `log_path_length` · `has_hyphen_in_domain` · `log_digit_count` · `suspicious_file_extension` · `log_domain_length` · `digit_ratio`
 
@@ -129,6 +140,7 @@ Railway auto-detects `railway.json` and handles the rest.
 | `/predict/batch` | POST | Scan up to 20 URLs |
 | `/export/pdf` | POST | Export scan result as PDF |
 | `/charts/<file>` | GET | Model performance charts |
+| `/health` | GET | Health check — returns `{"status": "ok"}` |
 
 **Single scan:**
 ```json
@@ -157,7 +169,7 @@ phishguard/
 ├── .env.example              # Environment variable reference (no real keys)
 ├── src/
 │   ├── predict_url.py        # Prediction logic + trusted domain whitelist
-│   ├── extract_features.py   # URL feature extraction (16 features)
+│   ├── extract_features.py   # URL feature extraction (14 features)
 │   ├── train_model.py        # Model training script
 │   ├── virustotal.py         # VirusTotal API integration
 │   ├── safebrowsing.py       # Google Safe Browsing integration
