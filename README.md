@@ -15,7 +15,7 @@
 
 PhishGuard is a machine learning web application that detects phishing URLs in real time. It combines an **XGBoost classifier** with isotonic probability calibration, trained on the LegitPhish 2025 dataset, with **VirusTotal** and **Google Safe Browsing** API integrations for layered threat detection.
 
-🔗 **Live demo:** https://phishguard.up.railway.app
+🔗 **Live demo:** [https://phishinguard.up.railway.app/]
 
 ---
 
