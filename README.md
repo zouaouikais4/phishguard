@@ -194,7 +194,7 @@ See `.env.example` for the list of required variables.
 
 ## Academic Context
 
-Developed as part of the **GLSI2 program** at the Faculté des Sciences de Bizerte, Université de Carthage.
+Developed as part of the **GLSI3 program** at the Faculté des Sciences de Bizerte, Université de Carthage.
 
 ---
 
